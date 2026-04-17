@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+#Set up Health Check Endpoint
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # Setup templates directory
 templates = Jinja2Templates(directory="templates")
 
