@@ -1,6 +1,7 @@
-# main.py
-
+from contextlib import asynccontextmanager
 from uuid import UUID
+from datetime import datetime, timezone, timedelta
+from typing import List
 
 import logging
 import uvicorn
@@ -13,23 +14,37 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_active_user
-from app.database import get_db
+from app.database import Base, engine, get_db
 from app.models.calculation import Calculation
 from app.models.user import User
 from app.operations import add, subtract, multiply, divide
 from app.schemas.calculation import CalculationCreate, CalculationRead, CalculationUpdate
-from app.schemas.user import UserRead, Token
-from app.schemas.base import UserCreate
+from app.schemas.token import TokenResponse
+from app.schemas.user import UserCreate, UserResponse, UserLogin
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Creating tables...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tables created successfully")
+    yield
+
+
+app = FastAPI(
+    title="Calculations API",
+    description="API for managing calculations",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
 templates = Jinja2Templates(directory="templates")
 
 
-@app.get("/health")
+@app.get("/health", tags=["health"])
 async def health():
     return {"status": "ok"}
 
@@ -42,6 +57,7 @@ class OperationRequest(BaseModel):
     b: float = Field(..., description="The second number")
 
     @field_validator("a", "b")
+    @classmethod
     def validate_numbers(cls, value):
         if not isinstance(value, (int, float)):
             raise ValueError("Both a and b must be numbers.")
@@ -79,7 +95,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 # -----------------------------
-# Existing routes
+# Existing frontend routes
 # -----------------------------
 @app.get("/")
 async def read_root(request: Request):
@@ -130,44 +146,88 @@ async def divide_route(operation: OperationRequest):
 
 
 # -----------------------------
-# User routes
+# Auth routes (professor-style)
 # -----------------------------
-@app.post("/users/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, tags=["users"])
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+@app.post(
+    "/auth/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["auth"],
+)
+def register(user_create: UserCreate, db: Session = Depends(get_db)):
     try:
-        new_user = User.register(db, user.model_dump())
+        user_data = user_create.model_dump(exclude={"confirm_password"})
+        user = User.register(db, user_data)
         db.commit()
-        db.refresh(new_user)
-        return UserRead.model_validate(new_user)
+        db.refresh(user)
+        return user
     except ValueError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Register error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@app.post("/users/login", response_model=Token, tags=["users"])
-def login_user(user_login: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    token_data = User.authenticate(db, user_login.username, user_login.password)
-    if not token_data:
+@app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
+def login_json(user_login: UserLogin, db: Session = Depends(get_db)):
+    auth_result = User.authenticate(db, user_login.username, user_login.password)
+    if auth_result is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username/email or password",
+            detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return token_data
+
+    db.commit()
+
+    expires_at = auth_result.get("expires_at")
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    elif not expires_at:
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+    return TokenResponse(
+        access_token=auth_result["access_token"],
+        refresh_token=auth_result["refresh_token"],
+        token_type="bearer",
+        expires_at=expires_at,
+        user_id=auth_result["user_id"],
+        username=auth_result["username"],
+        email=auth_result["email"],
+        first_name=auth_result["first_name"],
+        last_name=auth_result["last_name"],
+        is_active=auth_result["is_active"],
+        is_verified=auth_result["is_verified"],
+    )
+
+
+@app.post("/auth/token", tags=["auth"])
+def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    auth_result = User.authenticate(db, form_data.username, form_data.password)
+    if auth_result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return {
+        "access_token": auth_result["access_token"],
+        "token_type": "bearer",
+    }
 
 
 # -----------------------------
-# Calculation routes
+# Calculations routes
 # -----------------------------
-@app.post("/calculations", response_model=CalculationRead, status_code=status.HTTP_201_CREATED, tags=["calculations"])
+@app.post(
+    "/calculations",
+    response_model=CalculationRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["calculations"],
+)
 def create_calculation(
     calculation: CalculationCreate,
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(get_current_active_user),
+    current_user=Depends(get_current_active_user),
 ):
     try:
         new_calculation = Calculation.create(
@@ -189,10 +249,10 @@ def create_calculation(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@app.get("/calculations", response_model=list[CalculationRead], tags=["calculations"])
+@app.get("/calculations", response_model=List[CalculationRead], tags=["calculations"])
 def browse_calculations(
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(get_current_active_user),
+    current_user=Depends(get_current_active_user),
 ):
     calculations = (
         db.query(Calculation)
@@ -207,7 +267,7 @@ def browse_calculations(
 def read_calculation(
     calculation_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(get_current_active_user),
+    current_user=Depends(get_current_active_user),
 ):
     calculation = (
         db.query(Calculation)
@@ -229,7 +289,7 @@ def update_calculation(
     calculation_id: UUID,
     calculation_update: CalculationUpdate,
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(get_current_active_user),
+    current_user=Depends(get_current_active_user),
 ):
     calculation = (
         db.query(Calculation)
@@ -275,11 +335,11 @@ def update_calculation(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@app.delete("/calculations/{calculation_id}", status_code=204, tags=["calculations"])
+@app.delete("/calculations/{calculation_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["calculations"])
 def delete_calculation(
     calculation_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UserRead = Depends(get_current_active_user),
+    current_user=Depends(get_current_active_user),
 ):
     calculation = (
         db.query(Calculation)

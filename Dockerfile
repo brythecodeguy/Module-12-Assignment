@@ -1,7 +1,8 @@
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-   PYTHONUNBUFFERED=1
+   PYTHONUNBUFFERED=1 \
+   PLAYWRIGHT_BROWSERS_PATH=/tmp/ms-playwright
 
 WORKDIR /app
 
@@ -11,7 +12,9 @@ RUN apt-get update && \
    rm -rf /var/lib/apt/lists/* && \
    python -m pip install --upgrade pip "setuptools>=70.0.0" wheel && \
    groupadd -r appgroup && \
-   useradd -r -g appgroup appuser
+   useradd -r -g appgroup appuser && \
+   mkdir -p /tmp/ms-playwright && \
+   chown -R appuser:appgroup /tmp/ms-playwright
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

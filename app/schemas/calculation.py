@@ -58,12 +58,19 @@ class CalculationBase(BaseModel):
 
 
 class CalculationCreate(CalculationBase):
+    user_id: UUID = Field(
+        ...,
+        description="User ID linked to this calculation",
+        examples=["123e4567-e89b-12d3-a456-426614174000"]
+    )
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "type": "multiplication",
                 "a": 4,
-                "b": 3
+                "b": 3,
+                "user_id": "123e4567-e89b-12d3-a456-426614174000"
             }
         }
     )
