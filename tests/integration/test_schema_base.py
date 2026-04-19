@@ -1,6 +1,9 @@
 import pytest
+from uuid import uuid4
+from datetime import datetime
 from pydantic import ValidationError
-from app.schemas.user import UserBase, PasswordMixin, UserCreate, UserLogin
+from app.schemas.user import UserBase, PasswordMixin, UserCreate, UserLogin, UserResponse, PasswordUpdate
+from app.schemas.base import BaseSchema
 
 
 def test_user_base_valid():
@@ -85,3 +88,74 @@ def test_user_login_invalid():
 def test_password_missing():
     with pytest.raises(ValidationError):
         PasswordMixin()
+
+def test_base_schema_from_attributes_enabled():
+    schema = BaseSchema()
+    assert schema.model_config["from_attributes"] is True
+
+from app.schemas.user import UserResponse
+
+
+def test_user_create_passwords_do_not_match():
+    with pytest.raises(ValidationError):
+        UserCreate(
+            first_name="John",
+            last_name="Doe",
+            email="john2@example.com",
+            username="johndoe2",
+            password="GoodPass123!",
+            confirm_password="DifferentPass123!"
+        )
+
+
+def test_password_missing_special_character():
+    with pytest.raises(ValidationError):
+        PasswordMixin(password="GoodPass123")
+
+
+def test_user_response_from_attributes():
+    class DummyUser:
+        def __init__(self):
+            self.id = uuid4()
+            self.first_name = "John"
+            self.last_name = "Doe"
+            self.email = "john@example.com"
+            self.username = "johndoe"
+            self.is_active = True
+            self.is_verified = False
+            self.created_at = datetime.utcnow()
+            self.updated_at = datetime.utcnow()
+
+    user = DummyUser()
+    result = UserResponse.model_validate(user)
+
+    assert result.username == "johndoe"
+    assert result.email == "john@example.com"
+
+def test_password_update_passwords_do_not_match():
+    with pytest.raises(ValidationError, match="New password and confirmation do not match"):
+        PasswordUpdate(
+            current_password="OldPass123!",
+            new_password="NewPass123!",
+            confirm_new_password="Different123!"
+        )
+
+
+def test_password_update_new_password_must_differ():
+    with pytest.raises(ValidationError, match="New password must be different from current password"):
+        PasswordUpdate(
+            current_password="SamePass123!",
+            new_password="SamePass123!",
+            confirm_new_password="SamePass123!"
+        )
+
+def test_password_update_valid():
+    update = PasswordUpdate(
+        current_password="OldPass123!",
+        new_password="NewPass123!",
+        confirm_new_password="NewPass123!"
+    )
+
+    assert update.current_password == "OldPass123!"
+    assert update.new_password == "NewPass123!"
+    assert update.confirm_new_password == "NewPass123!"
