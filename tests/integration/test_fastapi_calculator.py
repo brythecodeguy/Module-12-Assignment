@@ -198,12 +198,12 @@ def test_register_value_error(client):
         "confirm_password": "short"
     }
 
-    response = client.post("/auth/register", json=payload)
+    response = client.post("/users/register", json=payload)
     assert response.status_code == 400
 
 
 def test_login_invalid(client):
-    response = client.post("/auth/login", json={
+    response = client.post("/users/login", json={
         "username": "wrong",
         "password": "wrong"
     })
@@ -224,9 +224,9 @@ def get_auth_headers(client):
         "confirm_password": "GoodPass123!"
     }
 
-    client.post("/auth/register", json=register_payload)
+    client.post("/users/register", json=register_payload)
 
-    login_response = client.post("/auth/login", json={
+    login_response = client.post("/users/login", json={
         "username": "testuser123",
         "password": "GoodPass123!"
     })

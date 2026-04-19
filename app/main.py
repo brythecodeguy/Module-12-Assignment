@@ -149,7 +149,7 @@ async def divide_route(operation: OperationRequest):
 # Auth routes
 # -----------------------------
 @app.post(
-    "/auth/register",
+    "/users/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     tags=["auth"],
@@ -170,7 +170,7 @@ def register(user_create: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
+@app.post("/users/login", response_model=TokenResponse, tags=["auth"])
 def login_json(user_login: UserLogin, db: Session = Depends(get_db)):
     auth_result = User.authenticate(db, user_login.username, user_login.password)
     if auth_result is None:

@@ -18,8 +18,8 @@ def _parse_datetime(dt_str: str) -> datetime:
 
 
 def register_and_login(base_url: str, user_data: dict) -> dict:
-    reg_url = f"{base_url}/auth/register"
-    login_url = f"{base_url}/auth/login"
+    reg_url = f"{base_url}/users/register"
+    login_url = f"{base_url}/users/login"
 
     reg_response = requests.post(reg_url, json=user_data)
     assert reg_response.status_code == 201, f"User registration failed: {reg_response.text}"
@@ -50,7 +50,7 @@ def test_user_registration(base_url: str):
         "confirm_password": "SecurePass123!",
     }
 
-    response = requests.post(f"{base_url}/auth/register", json=payload)
+    response = requests.post(f"{base_url}/users/register", json=payload)
     assert response.status_code == 201, f"Expected 201 but got {response.status_code}. Response: {response.text}"
 
     data = response.json()
@@ -75,11 +75,11 @@ def test_user_login(base_url: str):
         "confirm_password": "SecurePass123!",
     }
 
-    reg_response = requests.post(f"{base_url}/auth/register", json=user)
+    reg_response = requests.post(f"{base_url}/users/register", json=user)
     assert reg_response.status_code == 201, f"User registration failed: {reg_response.text}"
 
     login = requests.post(
-        f"{base_url}/auth/login",
+        f"{base_url}/users/login",
         json={
             "username": user["username"],
             "password": user["password"],
