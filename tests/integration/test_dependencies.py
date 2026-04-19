@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from app.auth.dependencies import get_current_user, get_current_active_user
-from app.schemas.user import UserRead
+from app.schemas.user import UserResponse
 from app.models.user import User
 
 
@@ -53,7 +53,7 @@ def test_get_current_user_valid_token_existing_user(mock_db, mock_verify_token):
 
     user_response = get_current_user(db=mock_db, token="validtoken")
 
-    assert isinstance(user_response, UserRead)
+    assert isinstance(user_response, UserResponse)
     assert user_response.id == sample_user.id
     assert user_response.username == sample_user.username
     assert user_response.email == sample_user.email
@@ -100,14 +100,14 @@ def test_get_current_user_valid_token_nonexistent_user(mock_db, mock_verify_toke
 
 
 def test_get_current_active_user_active():
-    active_user = UserRead.model_validate(sample_user)
+    active_user = UserResponse.model_validate(sample_user)
     result = get_current_active_user(current_user=active_user)
-    assert isinstance(result, UserRead)
+    assert isinstance(result, UserResponse)
     assert result.is_active is True
 
 
 def test_get_current_active_user_inactive():
-    inactive = UserRead.model_validate(inactive_user)
+    inactive = UserResponse.model_validate(inactive_user)
 
     with pytest.raises(HTTPException) as exc_info:
         get_current_active_user(current_user=inactive)

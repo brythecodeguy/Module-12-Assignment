@@ -3,9 +3,11 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import Column, String, Boolean, DateTime, or_
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
+from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.database import Base
+from app.schemas.user import UserCreate
 
 settings = get_settings()
 
@@ -58,18 +60,23 @@ class User(Base):
         if not password or len(password) < 8:
             raise ValueError("Password must be at least 8 characters long")
 
+        try:
+            validated = UserCreate.model_validate(user_data)
+        except ValidationError as e:
+            raise ValueError(str(e))
+
         existing_user = db.query(cls).filter(
-            or_(cls.email == user_data["email"], cls.username == user_data["username"])
+            or_(cls.email == validated.email, cls.username == validated.username)
         ).first()
         if existing_user:
             raise ValueError("Username or email already exists")
 
         user = cls(
-            first_name=user_data["first_name"],
-            last_name=user_data["last_name"],
-            email=user_data["email"],
-            username=user_data["username"],
-            password=cls.hash_password(password),
+            first_name=validated.first_name,
+            last_name=validated.last_name,
+            email=validated.email,
+            username=validated.username,
+            password=cls.hash_password(validated.password),
             is_active=True,
             is_verified=False,
         )
@@ -97,6 +104,7 @@ class User(Base):
             "refresh_token": refresh_token,
             "token_type": "bearer",
             "expires_at": expires_at,
+            "user": user,
             "user_id": user.id,
             "username": user.username,
             "email": user.email,
@@ -117,3 +125,22 @@ class User(Base):
         from app.auth.jwt import create_token
         from app.schemas.token import TokenType
         return create_token(data["sub"], TokenType.REFRESH)
+
+    @staticmethod
+    def verify_token(token: str):
+        from jose import jwt, JWTError
+        from app.core.config import get_settings
+        import uuid
+
+        settings = get_settings()
+
+        try:
+            payload = jwt.decode(
+                token,
+                settings.JWT_SECRET_KEY,
+                algorithms=[settings.ALGORITHM],
+            )
+            sub = payload.get("sub")
+            return uuid.UUID(sub) if sub else None
+        except (JWTError, ValueError, TypeError):
+            return None

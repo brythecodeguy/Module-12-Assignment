@@ -24,8 +24,8 @@ def test_user_base_invalid_email():
 
 
 def test_password_valid():
-    p = PasswordMixin(password="GoodPass123")
-    assert p.password == "GoodPass123"
+    p = PasswordMixin(password="GoodPass123!")
+    assert p.password == "GoodPass123!"
 
 
 def test_password_too_short():
@@ -35,17 +35,17 @@ def test_password_too_short():
 
 def test_password_missing_uppercase():
     with pytest.raises(ValidationError):
-        PasswordMixin(password="lowercase123")
+        PasswordMixin(password="lowercase123!")
 
 
 def test_password_missing_lowercase():
     with pytest.raises(ValidationError):
-        PasswordMixin(password="UPPERCASE123")
+        PasswordMixin(password="UPPERCASE123!")
 
 
 def test_password_missing_digit():
     with pytest.raises(ValidationError):
-        PasswordMixin(password="NoDigitsHere")
+        PasswordMixin(password="NoDigitsHere!")
 
 
 def test_user_create_valid():
@@ -54,7 +54,8 @@ def test_user_create_valid():
         last_name="Doe",
         email="john@example.com",
         username="johndoe",
-        password="GoodPass123"
+        password="GoodPass123!",
+        confirm_password="GoodPass123!"
     )
     assert user.username == "johndoe"
 
@@ -66,19 +67,21 @@ def test_user_create_invalid_password():
             last_name="Doe",
             email="john@example.com",
             username="johndoe",
-            password="short"
+            password="short",
+            confirm_password="short"
         )
 
 
 def test_user_login_valid():
-    user = UserLogin(username="johndoe", password="GoodPass123")
+    user = UserLogin(username="johndoe", password="GoodPass123!")
     assert user.username == "johndoe"
 
 
 def test_user_login_invalid():
     with pytest.raises(ValidationError):
         UserLogin(username="jd", password="short")
-        
+
+
 def test_password_missing():
     with pytest.raises(ValidationError):
         PasswordMixin()

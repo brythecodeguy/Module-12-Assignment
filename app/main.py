@@ -146,7 +146,7 @@ async def divide_route(operation: OperationRequest):
 
 
 # -----------------------------
-# Auth routes (professor-style)
+# Auth routes
 # -----------------------------
 @app.post(
     "/auth/register",

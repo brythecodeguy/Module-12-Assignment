@@ -30,16 +30,34 @@ class UserBase(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+    
 
-
-class UserCreate(UserBase):
-    """Schema for user creation with password validation"""
+class PasswordMixin(BaseModel):
     password: str = Field(
+        ...,
         min_length=8,
         max_length=128,
         example="SecurePass123!",
-        description="User's password (8-128 characters)"
+        description="Password"
     )
+
+    @model_validator(mode="after")
+    def validate_password(self) -> "PasswordMixin":
+        if not any(char.isupper() for char in self.password):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(char.islower() for char in self.password):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not any(char.isdigit() for char in self.password):
+            raise ValueError("Password must contain at least one digit")
+        if not any(char in "!@#$%^&*()_+-=[]{}|;:,.<>?" for char in self.password):
+            raise ValueError("Password must contain at least one special character")
+        return self
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserCreate(UserBase, PasswordMixin):
+    """Schema for user creation with password validation"""
     confirm_password: str = Field(
         min_length=8,
         max_length=128,
@@ -47,27 +65,10 @@ class UserCreate(UserBase):
         description="Password confirmation"
     )
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def verify_password_match(self) -> "UserCreate":
-        """Verify that password and confirm_password match"""
         if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
-        return self
-
-    @model_validator(mode='after')
-    def validate_password_strength(self) -> "UserCreate":
-        """Validate password strength requirements"""
-        password = self.password
-        if len(password) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        if not any(char.isupper() for char in password):
-            raise ValueError("Password must contain at least one uppercase letter")
-        if not any(char.islower() for char in password):
-            raise ValueError("Password must contain at least one lowercase letter")
-        if not any(char.isdigit() for char in password):
-            raise ValueError("Password must contain at least one digit")
-        if not any(char in "!@#$%^&*()_+-=[]{}|;:,.<>?" for char in password):
-            raise ValueError("Password must contain at least one special character")
         return self
 
     model_config = ConfigDict(
