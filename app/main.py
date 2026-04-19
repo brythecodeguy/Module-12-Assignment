@@ -156,14 +156,18 @@ async def divide_route(operation: OperationRequest):
 )
 def register(user_create: UserCreate, db: Session = Depends(get_db)):
     try:
-        user_data = user_create.model_dump(exclude={"confirm_password"})
+        user_data = user_create.model_dump()
         user = User.register(db, user_data)
         db.commit()
         db.refresh(user)
-        return user
+        return UserResponse.model_validate(user)
     except ValueError as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        logger.exception("Register route error")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["auth"])
@@ -227,7 +231,7 @@ def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
 def create_calculation(
     calculation: CalculationCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     try:
         new_calculation = Calculation.create(
@@ -252,7 +256,7 @@ def create_calculation(
 @app.get("/calculations", response_model=List[CalculationRead], tags=["calculations"])
 def browse_calculations(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     calculations = (
         db.query(Calculation)
@@ -267,7 +271,7 @@ def browse_calculations(
 def read_calculation(
     calculation_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     calculation = (
         db.query(Calculation)
@@ -289,7 +293,7 @@ def update_calculation(
     calculation_id: UUID,
     calculation_update: CalculationUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     calculation = (
         db.query(Calculation)
@@ -339,7 +343,7 @@ def update_calculation(
 def delete_calculation(
     calculation_id: UUID,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     calculation = (
         db.query(Calculation)

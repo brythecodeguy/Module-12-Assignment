@@ -86,41 +86,48 @@ def test_calculation_base_zero_numerator_ok():
 
 
 def test_calculation_create_valid():
-    user_id = uuid4()
     data = {
         "type": "multiplication",
         "a": 2,
         "b": 3,
-        "user_id": str(user_id),
     }
     calc = CalculationCreate(**data)
     assert calc.type == CalculationType.MULTIPLICATION
     assert calc.a == 2
     assert calc.b == 3
-    assert calc.user_id == user_id
 
 
-def test_calculation_create_missing_user_id():
+def test_calculation_create_missing_type():
     data = {
-        "type": "addition",
         "a": 1,
         "b": 2,
     }
     with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
 
-    assert "user_id" in str(exc_info.value)
+    assert "type" in str(exc_info.value)
 
 
-def test_calculation_create_invalid_user_id():
+def test_calculation_create_missing_a():
     data = {
-        "type": "subtraction",
-        "a": 10,
-        "b": 5,
-        "user_id": "not-a-valid-uuid",
+        "type": "addition",
+        "b": 2,
     }
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as exc_info:
         CalculationCreate(**data)
+
+    assert "a" in str(exc_info.value)
+
+
+def test_calculation_create_missing_b():
+    data = {
+        "type": "addition",
+        "a": 1,
+    }
+    with pytest.raises(ValidationError) as exc_info:
+        CalculationCreate(**data)
+
+    assert "b" in str(exc_info.value)
 
 
 def test_calculation_update_valid():
@@ -186,13 +193,11 @@ def test_calculation_read_missing_result():
 
 
 def test_multiple_calculations_with_different_types():
-    user_id = uuid4()
-
     calcs_data = [
-        {"type": "addition", "a": 1, "b": 2, "user_id": str(user_id)},
-        {"type": "subtraction", "a": 10, "b": 3, "user_id": str(user_id)},
-        {"type": "multiplication", "a": 2, "b": 4, "user_id": str(user_id)},
-        {"type": "division", "a": 100, "b": 5, "user_id": str(user_id)},
+        {"type": "addition", "a": 1, "b": 2},
+        {"type": "subtraction", "a": 10, "b": 3},
+        {"type": "multiplication", "a": 2, "b": 4},
+        {"type": "division", "a": 100, "b": 5},
     ]
 
     calcs = [CalculationCreate(**data) for data in calcs_data]

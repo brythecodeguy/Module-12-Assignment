@@ -55,15 +55,21 @@ class User(Base):
         return get_password_hash(password)
 
     @classmethod
-    def register(cls, db, user_data: dict):
-        password = user_data.get("password")
-        if not password or len(password) < 8:
-            raise ValueError("Password must be at least 8 characters long")
+    def register(cls, db, user_data):
+        if isinstance(user_data, dict):
+            raw_password = user_data.get("password")
+            if not raw_password or len(raw_password) < 8:
+                raise ValueError("Password must be at least 8 characters long")
 
-        try:
-            validated = UserCreate.model_validate(user_data)
-        except ValidationError as e:
-            raise ValueError(str(e))
+            try:
+                validated = UserCreate.model_validate(user_data)
+            except ValidationError as e:
+                raise ValueError(str(e))
+        else:
+            validated = user_data
+            raw_password = validated.password
+            if not raw_password or len(raw_password) < 8:
+                raise ValueError("Password must be at least 8 characters long")
 
         existing_user = db.query(cls).filter(
             or_(cls.email == validated.email, cls.username == validated.username)
@@ -81,6 +87,8 @@ class User(Base):
             is_verified=False,
         )
         db.add(user)
+        db.commit()
+        db.refresh(user)
         return user
 
     @classmethod

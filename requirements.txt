@@ -1,7 +1,9 @@
+aioredis==2.0.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.6.2.post1
 astroid==3.3.5
+async-timeout==5.0.1
 bcrypt==4.0.1
 certifi==2024.8.30
 charset-normalizer==3.4.0
@@ -42,7 +44,7 @@ pytest-pylint==0.21.0
 python-dotenv==1.2.2
 python-jose==3.5.0
 python-multipart==0.0.5
-redis==5.3.0
+redis==7.4.0
 requests==2.33.1
 rsa==4.9.1
 six==1.17.0
