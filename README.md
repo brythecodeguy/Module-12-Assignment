@@ -1,14 +1,19 @@
-# Module 11
+# Module 12
 
 ## Module Overview
 
-This module builds on the FastAPI application by adding a polymorphic calculation system with full testing coverage. The goal was to understand how object oriented design, database models, and testing all connect in a backend system.
+This module extends the FastAPI application by implementing a fully secured API with authentication, database integration, Docker deployment, and complete test coverage.
+
+The system allows users to register, authenticate, and perform calculations that are stored and retrieved from a PostgreSQL database. All protected routes require authentication using JWT tokens via OAuth2.
 
 ---
 
 ## Docker Setup
 
-Start the application:
+The FastAPI application runs using Uvicorn inside the container:
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+To Start the application:
 
 ```bash
 docker compose up --build
@@ -24,14 +29,14 @@ This starts:
 
 ## Docker Hub Repository
 
-<https://hub.docker.com/r/bry633/module-11-assignment>
+<https://hub.docker.com/r/bry633/module-12-assignment>
 
 ---
 
 ## Access Application
 
-FastAPI:  
-<http://localhost:8000>  
+FastAPI (Swagger UI):  
+<http://localhost:8000/docs>  
 
 pgAdmin:  
 <http://localhost:5050>  
@@ -52,79 +57,92 @@ Login:
 
 ---
 
-## Authentication Features
+## Authentication System
 
-JWT-based authentication is implemented.
+JWT-based authentication is implemented using OAuth2 Password Flow.
 
 ### User Registration
 
 Users register with:
 
-- first name  
-- last name  
+- first_name  
+- last_name  
 - email  
 - username  
 - password  
+- confirm_password  
 
 Passwords are securely hashed using bcrypt.
 
+---
+
 ### User Login
 
-- Login with username or email  
-- JWT token returned on success  
-- Token required for protected routes  
+- Login with username and password  
+- Returns:
+  - access_token  
+  - refresh_token  
+- Token is required for protected endpoints  
+
+---
+
+### Authorization (Swagger UI)
+
+1. Register a user  
+2. Login to receive credentials  
+3. Click **Authorize** in Swagger  
+4. Enter username + password  
+5. Swagger automatically attaches JWT token  
+
+---
+
+## Protected API Endpoints
+
+All calculation endpoints require authentication.
+
+### Create Calculation
+
+POST `/calculations`
+
+Example:
+
+{
+  "a": 10,
+  "b": 5,
+  "type": "addition"
+}
+
+Response:
+
+{
+  "result": 15
+}
+
+---
+
+### Get Calculations
+
+GET `/calculations`
+
+Returns all calculations for the authenticated user.
 
 ---
 
 ## Calculation System
 
-This module introduces a polymorphic calculation system using SQLAlchemy.
-
-### Supported Operations
+Supports the following operations:
 
 - Addition  
 - Subtraction  
 - Multiplication  
 - Division  
 
-### Key Features
+### Features
 
-- Polymorphism using SQLAlchemy inheritance  
-- Factory pattern using `Calculation.create()`  
-- Dynamic creation of calculation types  
-- Input validation (at least two numbers required)  
+- Input validation  
 - Error handling (e.g., division by zero)  
-
-Example:
-
-```python
-calc = Calculation.create("addition", user_id, [1, 2, 3])
-result = calc.get_result()  # 6
-```
-
----
-
-## API Operations
-
-### Create User
-
-- Handles user registration  
-
-### Authenticate User
-
-- Verifies credentials  
-- Updates last login  
-- Returns JWT token  
-
-### Protected Routes
-
-- Requires valid JWT  
-- Ensures user-specific access  
-
-### Calculations
-
-- Create and compute calculations  
-- Results stored and linked to users  
+- User-specific data storage  
+- Results persisted in database  
 
 ---
 
@@ -132,42 +150,32 @@ result = calc.get_result()  # 6
 
 Run tests:
 
-```bash
-pytest -q
-```
+pytest --run-slow --cov=app --cov-fail-under=100
 
 Includes:
 
 - Unit tests  
 - Integration tests  
-- Calculation factory tests  
-- Polymorphism tests  
-- Edge case handling  
+- API endpoint tests  
+- Authentication tests  
+- Database tests  
 
 Results:
 
-- 100% test coverage  
-- All tests passing  
+- 189 tests passing  
+- 100% code coverage  
 
 ---
 
 ## CI/CD Pipeline
 
-GitHub Actions automates:
+GitHub Actions pipeline includes:
 
-1. Run Tests  
-2. Security Scan (Trivy)  
-3. Build and Push Docker Image  
-
----
-
-## Docker Image
-
-Includes:
-
-- FastAPI app  
-- Secure dependencies  
-- PostgreSQL integration  
+1. Run tests  
+2. Enforce 100% coverage  
+3. Security scan using Trivy  
+4. Build Docker image  
+5. Push to Docker Hub  
 
 ---
 
@@ -175,14 +183,44 @@ Includes:
 
 - Password hashing with bcrypt  
 - JWT authentication  
-- Dependency updates  
-- Trivy vulnerability scanning  
+- OAuth2 password flow  
+- Protected API routes  
+- Dependency vulnerability scanning (Trivy)  
+- Fixed critical vulnerability:
+  - python-multipart upgraded to secure version  
 
 ---
 
-## Documentation
+## Docker Image
 
-- [Module11_Screenshots.pdf](./Module11_Screenshots.pdf) – GitHub Actions and Docker Hub Screenshots
-- [Module11_Reflection.pdf](./Module11_Reflection.pdf) – Reflection  
+Includes:
+
+- FastAPI application  
+- PostgreSQL database integration  
+- Secure dependencies  
+- Production-ready configuration  
 
 ---
+
+## Screenshots
+
+Include the following in your submission:
+
+- [Module12_Screenshots.pdf](./Module12_Screenshots.pdf) – Screnshots of GitHub Actions and demonstration of user registration/login and operational calculation endpoints
+
+1. User registration (POST /users/register)  
+2. User login with token response  
+3. Swagger Authorize dialog  
+4. Create calculation request/response  
+5. Get calculations response  
+6. GitHub Actions passing  
+
+---
+
+## Reflection
+
+Reflection on experience with this module:
+
+- [Module12_Reflection.pdf](./Module12_Reflection.pdf) – Reflection  
+
+The project integrates all major backend concepts into a working, production-style application.
